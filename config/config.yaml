@@ -1,0 +1,29 @@
+# PolyEdge Automator v2.5 — Minimal config
+# This file is part of the signed manifest and must not be edited without
+# regenerating the manifest.
+
+database:
+  dsn: "${POLYEDGE_DATABASE_URL:-postgresql://polyedge:polyedge_dev@localhost:5432/polyedge}"
+
+categories:
+  allowlist:
+    - geopolitics
+    - economics
+    - "tech/AI"
+  denylist:
+    - sports
+
+secrets_dir: "${POLYEDGE_SECRETS_DIR:-./secrets}"
+
+wal:
+  path: "${POLYEDGE_WAL_PATH:-./data/wal.jsonl}"
+
+ws:
+  url: "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+  heartbeat_sec: 10
+
+venue:
+  client_order_id_max_len: 64
+
+injection:
+  min_pattern_version: "1.0.0"

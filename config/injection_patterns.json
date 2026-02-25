@@ -1,0 +1,31 @@
+{
+    "pattern_set_version": "1.0.0",
+    "updated_at_utc": "2026-02-25T00:00:00Z",
+    "patterns": [
+        {
+            "pattern_id": "INJ-001",
+            "regex_utf8": "(?i)ignore\\s+(all\\s+)?previous\\s+instructions",
+            "severity": "INJECTION_DETECTED"
+        },
+        {
+            "pattern_id": "INJ-002",
+            "regex_utf8": "(?i)you\\s+are\\s+now\\s+(a|an)\\s+",
+            "severity": "INJECTION_DETECTED"
+        },
+        {
+            "pattern_id": "INJ-003",
+            "regex_utf8": "(?i)system\\s*:\\s*you\\s+are",
+            "severity": "INJECTION_DETECTED"
+        },
+        {
+            "pattern_id": "SUS-001",
+            "regex_utf8": "(?i)(reveal|show|print|output)\\s+(your|the)\\s+(system|initial)\\s+(prompt|instructions)",
+            "severity": "SUSPICIOUS"
+        },
+        {
+            "pattern_id": "SUS-002",
+            "regex_utf8": "(?i)act\\s+as\\s+(if|though)\\s+you",
+            "severity": "SUSPICIOUS"
+        }
+    ]
+}

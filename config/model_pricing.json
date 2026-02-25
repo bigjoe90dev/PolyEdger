@@ -1,0 +1,38 @@
+{
+    "schema_version": "polyedge.pricing.v2.5",
+    "updated_at_utc": "2026-02-25T00:00:00Z",
+    "models": {
+        "deepseek/deepseek-v3.2": {
+            "weight": 2,
+            "input_price_per_1m_tokens": 0.27,
+            "output_price_per_1m_tokens": 1.10,
+            "max_input_tokens": 8000,
+            "max_output_tokens": 2000,
+            "timeout_sec": 8
+        },
+        "minimax/minimax-m2.5": {
+            "weight": 2,
+            "input_price_per_1m_tokens": 0.50,
+            "output_price_per_1m_tokens": 1.50,
+            "max_input_tokens": 8000,
+            "max_output_tokens": 2000,
+            "timeout_sec": 8
+        },
+        "moonshotai/kimi-k2.5": {
+            "weight": 1,
+            "input_price_per_1m_tokens": 0.40,
+            "output_price_per_1m_tokens": 1.20,
+            "max_input_tokens": 8000,
+            "max_output_tokens": 2000,
+            "timeout_sec": 8
+        },
+        "z-ai/glm-5": {
+            "weight": 1,
+            "input_price_per_1m_tokens": 0.35,
+            "output_price_per_1m_tokens": 1.00,
+            "max_input_tokens": 8000,
+            "max_output_tokens": 2000,
+            "timeout_sec": 8
+        }
+    }
+}
