@@ -369,5 +369,158 @@ def snapshot_ingest(market_id: str, data: str) -> None:
     _run(_run_ingest())
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# PIPELINE commands
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@cli.group()
+def pipeline() -> None:
+    """Candidate pipeline operations."""
+    pass
+
+
+@pipeline.command("run")
+@click.option("--mock", is_flag=True, help="Use mock data")
+@click.option("--duration", default=10, help="Run duration in seconds")
+def pipeline_run(mock: bool, duration: int) -> None:
+    """Run the candidate pipeline fast loop."""
+    import time as _time
+
+    from polyedge.candidates import (
+        CandidateRateLimiter,
+        TriggerState,
+        create_candidate,
+        detect_triggers,
+    )
+    from polyedge.filters import run_all_filters
+    from polyedge.snapshots import Snapshot, create_snapshot
+    from polyedge.ws_client import OrderbookWSClient
+
+    trigger_state = TriggerState()
+    rate_limiter = CandidateRateLimiter()
+    candidates_created = 0
+    candidates_filtered = 0
+
+    async def _run_pipeline() -> None:
+        nonlocal candidates_created, candidates_filtered
+
+        client = OrderbookWSClient(mock_mode=True)
+        await client.connect()
+        await client.subscribe(["mock-market-001", "mock-market-002"])
+
+        start = _time.time()
+        prev_snapshots = {}  # type: Dict[str, Any]
+
+        while _time.time() - start < duration:
+            results = await client.run_mock_loop(duration_sec=2.0)
+
+            for book_data in results:
+                mid = book_data["market_id"]
+                snap = create_snapshot(mid, book_data, snapshot_source="WS")
+
+                prev = prev_snapshots.get(mid)
+                triggers = detect_triggers(mid, snap, prev)
+                prev_snapshots[mid] = snap
+
+                for trig in triggers:
+                    persisted = trigger_state.record_trigger(mid, trig, snap.snapshot_id)
+                    if persisted and rate_limiter.can_enqueue(mid):
+                        candidate = create_candidate(mid, snap.snapshot_id, [trig])
+
+                        market_data = {
+                            "is_binary_eligible": True,
+                            "end_date_utc": "2026-12-31T00:00:00Z",
+                            "volume_24h_usd": 5000,
+                            "liquidity_usd": 10000,
+                        }
+                        passed, reason = run_all_filters(
+                            candidate, market_data, snap, client.state,
+                        )
+
+                        if passed:
+                            candidates_created += 1
+                            rate_limiter.record_enqueue(mid)
+                            trigger_state.clear_trigger(mid, trig)
+                        else:
+                            candidates_filtered += 1
+
+    click.echo("Pipeline running ({} mode, {}s)...".format(
+        "mock" if mock else "live", duration,
+    ))
+    _run(_run_pipeline())
+    click.echo("Pipeline complete: {} candidates created, {} filtered".format(
+        candidates_created, candidates_filtered,
+    ))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WATCHLIST commands
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@cli.group()
+def watchlist() -> None:
+    """Watchlist operations."""
+    pass
+
+
+@watchlist.command("show")
+def watchlist_show() -> None:
+    """Print current watchlist."""
+    from polyedge.db import close_pool, get_pool
+    from polyedge.watchlist import get_watchlist
+
+    async def _run_show() -> List[Dict[str, Any]]:
+        try:
+            pool = await get_pool()
+            return await get_watchlist(pool)
+        finally:
+            await close_pool()
+
+    items = _run(_run_show())
+    if not items:
+        click.echo("Watchlist is empty.")
+        return
+
+    click.echo("Watchlist ({} markets):".format(len(items)))
+    for item in items:
+        click.echo("  {} score={:.2f} added={}".format(
+            item["market_id"], float(item["score"]), item["added_at_utc"],
+        ))
+
+
+@watchlist.command("refresh")
+@click.option("--mock", is_flag=True, help="Use mock data")
+def watchlist_refresh(mock: bool) -> None:
+    """Refresh the watchlist from eligible markets."""
+    from polyedge.db import close_pool, get_pool
+    from polyedge.registry import generate_mock_markets, parse_gamma_market
+    from polyedge.watchlist import refresh_watchlist
+
+    async def _run_refresh() -> Dict[str, int]:
+        try:
+            pool = await get_pool()
+            if mock:
+                raw_markets = generate_mock_markets()
+            else:
+                from polyedge.registry import fetch_markets_from_gamma
+                raw_markets = await fetch_markets_from_gamma()
+
+            eligible = []
+            for m in raw_markets:
+                parsed = parse_gamma_market(m)
+                if parsed and parsed["is_binary_eligible"]:
+                    eligible.append(parsed)
+
+            return await refresh_watchlist(pool, eligible)
+        finally:
+            await close_pool()
+
+    stats = _run(_run_refresh())
+    click.echo("Watchlist refreshed: added={} probation={} quarantine={}".format(
+        stats["added"], stats["probation"], stats["quarantine"],
+    ))
+
+
 if __name__ == "__main__":
     cli()
+
